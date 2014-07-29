@@ -5,7 +5,7 @@ This module is also available on the [Puppet
 Forge](https://forge.puppetlabs.com/garethr/docker)
 
 [![Build
-Status](https://secure.travis-ci.org/garethr/garethr-docker.png)](http://travis-ci.org/garethr/garethr-docker)
+Status](https://secure.travis-ci.org/Yleisradio/garethr-docker.png)](http://travis-ci.org/Yleisradio/garethr-docker)
 
 ## Usage
 
@@ -73,7 +73,7 @@ The next step is probably to install a docker image, for this we have a defined 
 docker::image { 'base': }
 ```
 
-This is equivalent to running `docker pull base`. This is downloading a large binary so on first run can take a while. For that reason this define turns off the default 5 minute timeout for exec. Takes an optional parameter for installing image tags that is the equivalent to running `docker pull -t="precise" ubuntu`:  
+This is equivalent to running `docker pull base`. This is downloading a large binary so on first run can take a while. For that reason this define turns off the default 5 minute timeout for exec. Takes an optional parameter for installing image tags that is the equivalent to running `docker pull -t="precise" ubuntu`:
 
 ```puppet
 docker::image { 'ubuntu':
@@ -81,9 +81,9 @@ docker::image { 'ubuntu':
 }
 ```
 
-Note: images will only install if an image of that name does not already exist.  
+Note: images will only install if an image of that name does not already exist.
 
-You can also remove images you no longer need with:  
+You can also remove images you no longer need with:
 
 ```puppet
 docker::image { 'base':
@@ -122,7 +122,7 @@ docker::run { 'helloworld':
   use_name        => true,
   volumes         => ['/var/lib/couchdb', '/var/log'],
   volumes_from    => '6446ea52fbc9',
-  memory_limit    => 10485760, # bytes 
+  memory_limit    => 10485760, # bytes
   username        => 'example',
   hostname        => 'example.com',
   env             => ['FOO=BAR', 'FOO2=BAR2'],
