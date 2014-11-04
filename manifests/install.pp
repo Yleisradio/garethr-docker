@@ -7,43 +7,24 @@
 #
 class docker::install {
   validate_string($docker::version)
-  validate_re($::osfamily, '^(Debian|RedHat)$', 'This module only works on Debian and Red Hat based systems.')
+  validate_re($::osfamily, '^(Debian|RedHat|Archlinux)$', 'This module only works on Debian, Red Hat and Archlinux based systems.')
   validate_string($::kernelrelease)
   validate_bool($docker::use_upstream_package_source)
 
-  $prerequired_packages = $::operatingsystem ? {
-    'Debian' => ['apt-transport-https', 'cgroupfs-mount'],
-    'Ubuntu' => ['apt-transport-https', 'cgroup-lite'],
-    default  => '',
-  }
-
-  $recommended_packages = $::operatingsystem ? {
-    'Debian' => ['bridge-utils'],
-    'Ubuntu' => ['bridge-utils'],
-    default  => '',
-  }
-
   case $::osfamily {
     'Debian': {
-
-      if member(['present','installed','latest'], $docker::ensure) {
-          ensure_resource('package',$prerequired_packages,{ ensure => $docker::ensure })
-      }
-      if member(['present','installed','latest'], $docker::ensure_recommended) {
-          ensure_resource('package',$recommended_packages,{ ensure => $docker::ensure_recommended })
-      }
+      ensure_packages($docker::prerequired_packages)
       if $docker::manage_package {
         Package['apt-transport-https'] -> Package['docker']
       }
 
+      if $docker::version {
+        $dockerpackage = "${docker::package_name}-${docker::version}"
+      } else {
+        $dockerpackage = $docker::package_name
+      }
+
       if ($docker::use_upstream_package_source) {
-
-        if $docker::version {
-          $dockerpackage = "lxc-docker-${docker::version}"
-        } else {
-          $dockerpackage = 'lxc-docker'
-        }
-
         include apt
         apt::source { 'docker':
           location          => $docker::package_source_location,
@@ -51,7 +32,7 @@ class docker::install {
           repos             => 'main',
           required_packages => 'debian-keyring debian-archive-keyring',
           key               => 'A88D21E9',
-          key_source        => 'http://get.docker.io/gpg',
+          key_source        => 'https://get.docker.io/gpg',
           pin               => '10',
           include_src       => false,
         }
@@ -59,8 +40,6 @@ class docker::install {
           Apt::Source['docker'] -> Package['docker']
         }
       } else {
-        $dockerpackage = 'docker.io'
-
         if $docker::version and $docker::ensure != 'absent' {
           $ensure = $docker::version
         } else {
@@ -71,17 +50,16 @@ class docker::install {
       if $::operatingsystem == 'Ubuntu' {
         $install_init_d_script = false
         case $::operatingsystemrelease {
-          # On Ubuntu 12.04 (precise) install the backported 13.04 (raring) kernel
+          # On Ubuntu 12.04 (precise) install the backported 13.10 (saucy) kernel
           '12.04': { $kernelpackage = [
-                                        'linux-image-generic-lts-raring',
-                                        'linux-headers-generic-lts-raring'
+                                        'linux-image-generic-lts-trusty',
+                                        'linux-headers-generic-lts-trusty'
                                       ]
           }
           # determine the package name for 'linux-image-extra-$(uname -r)' based
           # on the $::kernelrelease fact
           default: { $kernelpackage = "linux-image-extra-${::kernelrelease}" }
         }
-
         $manage_kernel = $docker::manage_kernel
       } else {
         # Debian does not need extra kernel packages
@@ -90,23 +68,36 @@ class docker::install {
       }
     }
     'RedHat': {
-      if versioncmp($::operatingsystemrelease, '6.4') < 0 and $::operatingsystem != "Amazon" {
-        fail('Docker needs RedHat/CentOS version to be at least 6.4.')
-      } elsif $::operatingsystem == "Amazon" and versioncmp($::operatingsystemrelease, '3.0') < 0 {
-        fail('Docker needs Amazon Linux version to be at least 3.0.')
+      if $::operatingsystem == 'Amazon' {
+        if versioncmp($::operatingsystemrelease, '3.10.37-47.135') < 0 {
+          fail('Docker needs Amazon version to be at least 3.10.37-47.135.')
+        }
+      }
+      elsif versioncmp($::operatingsystemrelease, '6.5') < 0 {
+        fail('Docker needs RedHat/CentOS version to be at least 6.5.')
       }
       $manage_kernel = false
 
       if $docker::version {
-        $dockerpackage = "docker-io-${docker::version}"
+        $dockerpackage = "${docker::package_name}-${docker::version}"
       } else {
-        $dockerpackage = 'docker-io'
+        $dockerpackage = $docker::package_name
       }
+      if $::operatingsystem != 'Amazon' {
+        if ($docker::use_upstream_package_source) {
+          include 'epel'
+          if $docker::manage_package {
+            Class['epel'] -> Package['docker']
+          }
+        }
+      }
+    }
+    'Archlinux': {
+      $manage_kernel = false
 
-      if ($docker::use_upstream_package_source) {
-        include 'epel'
-        if $docker::manage_package {
-          Class['epel'] -> Package['docker']
+      if $docker::version {
+        notify { 'docker::version unsupported on Archlinux':
+          message => 'Versions other than latest are not supported on Arch Linux. This setting will be ignored.'
         }
       }
     }
