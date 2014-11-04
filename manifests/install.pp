@@ -1,9 +1,8 @@
 # == Class: docker
 #
 # Module to install an up-to-date version of Docker from a package repository.
-# The use of this repository means, this module works only on Debian and Red
-# Hat based distributions.  If $docker::params::ensure is set to absent or purge,
-# then docker and its dependencies will be uninstalled.
+# This module currently works only on Debian, Red Hat
+# and Archlinux based distributions.
 #
 class docker::install {
   validate_string($docker::version)
@@ -48,7 +47,6 @@ class docker::install {
       }
 
       if $::operatingsystem == 'Ubuntu' {
-        $install_init_d_script = false
         case $::operatingsystemrelease {
           # On Ubuntu 12.04 (precise) install the backported 13.10 (saucy) kernel
           '12.04': { $kernelpackage = [
@@ -64,7 +62,6 @@ class docker::install {
       } else {
         # Debian does not need extra kernel packages
         $manage_kernel = false
-        $install_init_d_script = true
       }
     }
     'RedHat': {
@@ -76,6 +73,7 @@ class docker::install {
       elsif versioncmp($::operatingsystemrelease, '6.5') < 0 {
         fail('Docker needs RedHat/CentOS version to be at least 6.5.')
       }
+
       $manage_kernel = false
 
       if $docker::version {
@@ -105,7 +103,7 @@ class docker::install {
 
   if $manage_kernel {
     package { $kernelpackage:
-      ensure => $docker::ensure,
+      ensure => present,
     }
     if $docker::manage_package {
       Package[$kernelpackage] -> Package['docker']
@@ -118,34 +116,4 @@ class docker::install {
       name   => $dockerpackage,
     }
   }
-
-  if member(['absent','purged'], $docker::ensure_recommended) {
-    ensure_resource('package',$recommended_packages,{ ensure => $docker::ensure_recommended })
-  }
-
-  if member(['absent','purged'], $docker::ensure) {
-
-    ensure_resource('package',$prerequired_packages,{ ensure => $docker::ensure })
-
-    file { '/etc/init.d/docker':
-      ensure => 'absent',
-    }
-
-  } elsif $install_init_d_script == false {
-
-    file { '/etc/init.d/docker':
-      ensure => 'absent',
-      notify => Service['docker'],
-    }
-
-  } elsif $install_init_d_script == true {
-
-    file { '/etc/init.d/docker':
-      source => 'puppet:///modules/docker/etc/init.d/docker',
-      owner  => root,
-      group  => root,
-    }
-
-  }
-
 }
